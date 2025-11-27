@@ -1,57 +1,55 @@
 package murach.sql;
 
 import java.sql.*;
+// Đã xóa dòng import murach.util.SQLUtil vì nó nằm cùng gói
 
 public class SqlGatewayDAO {
-    
+
     static {
         try {
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
+            System.out.println("PostgreSQL Driver not found: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    private final String DB_URL = "jdbc:postgresql://localhost:5432/murach_gateway";
-    private final String DB_USER = "postgres";
-    private final String DB_PASS = "postgres";
+    private Connection getConnection() throws SQLException {
+        String dbUrl = System.getenv("DB_URL");
+        String dbUser = System.getenv("DB_USER");
+        String dbPass = System.getenv("DB_PASSWORD");
+
+        if (dbUrl == null || dbUrl.isEmpty()) {
+            dbUrl = "jdbc:postgresql://localhost:5432/murach_gateway";
+            dbUser = "postgres";
+            dbPass = "postgres"; 
+        }
+
+        return DriverManager.getConnection(dbUrl, dbUser, dbPass);
+    }
 
     public String executeSql(String sql) {
         String result = "";
-
         if (sql == null || sql.trim().isEmpty()) {
             return "<p>No SQL statement provided.</p>";
         }
-
         sql = sql.trim();
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+        try (Connection conn = this.getConnection();
              Statement stmt = conn.createStatement()) {
 
             if (sql.toLowerCase().startsWith("select")) {
-
-                // SELECT → trả bảng HTML
                 try (ResultSet rs = stmt.executeQuery(sql)) {
                     result = SQLUtil.getHtmlTable(rs);
                 }
-
             } else {
-
-                // INSERT / UPDATE / DELETE / DDL
                 int affected = stmt.executeUpdate(sql);
-
-                if (affected == 0) {
-                    result = "<p>The statement executed successfully.</p>";
-                } else {
-                    result = "<p>The statement executed successfully.<br>"
-                            + affected + " row(s) affected.</p>";
-                }
+                result = "<p>Statement executed successfully.<br>" + affected + " row(s) affected.</p>";
             }
-
         } catch (SQLException ex) {
             result = "<p>Error executing SQL:<br>" + ex.getMessage() + "</p>";
+            ex.printStackTrace();
         }
-
         return result;
     }
 }
